@@ -17,8 +17,18 @@ This is my ridiculous and over-the-top, yet still beautiful, Bash shell prompt. 
 
 The first line shows the exit status/code of the last command, date and time of completion of last command, current user, user's tty, short hostname, and the system's uptime.  It also features an eternal flame to make sure things keep running.  The second line shows the size of your command history, the command number for the current session, running jobs, sleeping jobs, current directory, and stats about the directory's contents: size of the data just in this directory (not including subdirectories), number of regular and hidden files, number of programs/executables, number of directories and hidden directories, number of links (visible plus hidden), and number of special files (block devices, character devices, pipes, and sockets)).  Finally, the third line is where you can actually enter your command!
 
-![Main Example Screenshot](.bash_prompt-screenshots/ExampleMain.png?raw=true "Example screenshot of main interface")
-![Fallback Example Screenshot](.bash_prompt-screenshots/ExampleFallback.png?raw=true "Example screenshot of fallback interface")
+| ![Screenshot of main prompt in Gnome Terminal](.bash_prompt-screenshots/ExampleMain-GnomeTerminal.png?raw=true "Main prompt in Gnome Terminal") |
+| - |
+| Main prompt in Gnome Terminal |
+
+| ![Screenshot of main prompt in Terminology](.bash_prompt-screenshots/ExampleMain-Terminology.png?raw=true "Main prompt in Terminology") |
+| - |
+| Main prompt in Terminology |
+
+| ![Screenshot of fallback prompt in Debian Console](.bash_prompt-screenshots/ExampleFallback-DebianConsole.png?raw=true "Fallback prompt in Debian Console") |
+| - |
+| Fallback prompt in Debian Console |
+
 
 The most difficult part by far was figuring out how to pad the right ends of the first two lines so they remained connected, but I got it!  They will adapt to differing lengths of data displayed in the prompt as well as resizes of the terminal.  It's quite hacked together, with different snippets and ideas found over the Internet!  With the color/UTF-8 version, I had to manually offset the calculated padding for each line by a certain amount.  I think it has something to do with the Spiral Calendar (first on line 1) and Printer (last on line 2), since I had to add some spaces after those so the following text wasn't covered by the icon.  Either way, the implementation is quite consistent.  One problem I've seen so far is when the session command number increases from 9 to 10.  Another problem occurs if you descend into a directory with a really long name, forcing the second line to wrap.  Fortunately, these issues are quickly resolved by entering the next command or resizing your terminal (and entering the next command), respectively.
 
@@ -38,19 +48,22 @@ My *.bash_prompt* uses the following programs:
     - *date* (GNU *coreutils*)
     - *gawk* (GNU) (linked as `awk`)
     - *grep* (GNU)
+    - *ls* (GNU *coreutils*)
     - *sed* (GNU)
     - *tty* (GNU *coreutils*)
     - *wc* (GNU *coreutils*)
+
+You'll also need an emoji font installed, such as [Noto Emoji](https://fonts.google.com/noto/specimen/Noto+Emoji) or [Noto Color Emoji](https://fonts.google.com/noto/specimen/Noto+Color+Emoji)
 
 #### Setup
 ```
 sudo apt install coreutils gawk grep sed
 git clone https://github.com/jaseg/lolcat jaseg/lolcat && cd jaseg/lolcat
-make && sudo make install
+make && sudo make install && cd
 ln -s /usr/local/bin/lolcat ~/.local/bin/lolcat-c
-git clone https://github.com/scarf/dotfiles scarf/dotfiles
+git clone https://github.com/scarlion1/dotfiles scarlion1/dotfiles
 mv ~/.bash_prompt ~/.bash_prompt.bak
-ln -s scarf/dotfiles/.bash_prompt ~/.bash_prompt
+ln -s $(realpath scarlion1/dotfiles/.bash_prompt) ~/.bash_prompt
 ```
 
 [^1]: [dosentmatter/rainbow-bash-prompt](https://github.com/dosentmatter/rainbow-bash-prompt)
