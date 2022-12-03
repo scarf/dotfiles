@@ -52,26 +52,17 @@ __ps1_hiddenDirs(){ grep "^d" <<< "${PS1_dirList}" | awk '{print $9}' | grep -c 
 __ps1_links(){ grep -c "^l" <<< "${PS1_dirList}"; }
 __ps1_spec(){ grep -c "^[bcps]" <<< "${PS1_dirList}"; }
 
-# Calculate Line 1 padding
-__ps1_l1_pad () {
+# Calculate padding
+__ps1_pad(){
   local len pad
-  len="$(wc -m <<< "${PS1_L1@P}")"
-  if [[ "${color_prompt}" = yes ]]; then
-    pad=$((COLUMNS-len-3))
-  else
-    pad=$((COLUMNS-len))
+  if [[ "${1}" = L1 ]]; then len="$(wc -m <<< "${PS1_L1@P}")"
+    else len="$(wc -m <<< "${PS1_L2@P}")"
   fi
-  printf %"${pad}"s | sed 's/ /═/g'
-}
-
-# Calculate Line 2 padding
-__ps1_l2_pad () {
-  local len pad
-  len="$(wc -m <<< "${PS1_L2@P}")"
   if [[ "${color_prompt}" = yes ]]; then
-    pad=$((COLUMNS-len-5))
-  else
-    pad=$((COLUMNS-len))
+    if [[ "${1}" = L1 ]]; then pad=$((COLUMNS-len-3))
+      else pad=$((COLUMNS-len-6))
+    fi
+    else pad=$((COLUMNS-len))
   fi
   printf %"${pad}"s | sed 's/ /═/g'
 }
@@ -81,7 +72,7 @@ __prompt_command() {
   # shellcheck disable=SC2034
   local PS1_exit=$?
   
-  local PS1_Cl PS1_dirList PS1_L1 PS1_L2 PS1_L3 PS1_Op
+  local PS1_Cl PS1_dirList PS1_L3 PS1_Op
   
   # Get dir listing
   PS1_dirList=$(\ls -Al --si)
@@ -89,12 +80,14 @@ __prompt_command() {
   PS1_Op="$(__ps1_utf8 ⟪ '[')"
   PS1_Cl="$(__ps1_utf8 ⟫ ']')"
   
-  PS1_L1="╚═${PS1_Op}Exit ${PS1_exit}${PS1_Cl}══${PS1_Op}${color_prompt:+🗓️ }\d ${color_prompt:+🕛}\D{}${PS1_Cl}══${PS1_Op}\u(${color_prompt:+💻}$(tty | sed 's/\/dev\///'))@\h(${color_prompt:+⚡}$(__ps1_uptime))${PS1_Cl}══╡$(__ps1_utf8 🔥 ╳)╞"
-  PS1_L1+="$(__ps1_l1_pad)╗\n"
-  PS1_L2="╔══${PS1_Op}\!:\#${PS1_Cl}══${PS1_Op}$(jobs -r | wc -l)$(__ps1_utf8 🏃 R)/$(jobs -s | wc -l)$(__ps1_utf8 💤 S)${PS1_Cl}══${PS1_Op}\W($(__ps1_dirSize)B $(__ps1_utf8 📄 -)$(__ps1_files).$(__ps1_hiddenFiles) $(__ps1_utf8 💾 x)$(__ps1_execs) $(__ps1_utf8 📁 d)$(__ps1_dirs).$(__ps1_hiddenDirs) $(__ps1_utf8 🔗 l)$(__ps1_links) $(__ps1_utf8 '🖨️ ' s)$(__ps1_spec))${PS1_Cl}"
-  PS1_L2+="$(__ps1_l2_pad)╝\n"
+  PS1_L1="╚═${PS1_Op}Exit ${PS1_exit}${PS1_Cl}══${PS1_Op}${color_prompt:+🗓️ }\d ${color_prompt:+🕛}\D{}${PS1_Cl}══${PS1_Op}\u(${color_prompt:+💻}$(tty | cut -c 6-))@\h(${color_prompt:+⚡}$(__ps1_uptime))${PS1_Cl}══╡$(__ps1_utf8 🔥 ╳)╞"
+  PS1_L1+="$(__ps1_pad L1)╗\n"
+  PS1_L2="╔══${PS1_Op}\!:\#${PS1_Cl}══${PS1_Op}$(jobs -r | wc -l)$(__ps1_utf8 🏃 R)/$(jobs -s | wc -l)$(__ps1_utf8 💤 S)${PS1_Cl}══${PS1_Op}${color_prompt:+📂}\W($(__ps1_dirSize)B $(__ps1_utf8 📄 -)$(__ps1_files).$(__ps1_hiddenFiles) $(__ps1_utf8 💾 x)$(__ps1_execs) $(__ps1_utf8 📁 d)$(__ps1_dirs).$(__ps1_hiddenDirs) $(__ps1_utf8 🔗 l)$(__ps1_links) $(__ps1_utf8 '🖨️ ' s)$(__ps1_spec))${PS1_Cl}"
+  PS1_L2+="$(__ps1_pad L2)╝\n"
   PS1_L3="╠═$(__ps1_utf8 ⮚ \>)$(__ps1_utf8 💲 \$) "
   
   PS1='$(__ps1_lolcat <<< "'${PS1_L1}${PS1_L2}${PS1_L3}'")'
+  
+  unset PS1_L1 PS1_L2
 }
 PROMPT_COMMAND="__prompt_command${PROMPT_COMMAND:+"; ${PROMPT_COMMAND}"}"
