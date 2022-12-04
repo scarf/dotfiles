@@ -2,24 +2,22 @@
 # shellcheck disable=SC2312
 
 case "${TERM}" in
-    xterm-color|*-256color) color_prompt=yes;;
+    xterm-color|*-256color|linux) color_prompt=yes;;
     *) ;;
 esac
 
 # Print UTF-8 char?
 __ps1_utf8(){
-  if [[ "${color_prompt}" = yes ]]; then
-    echo "$1"
-  else
-    echo "$2"
-  fi
+  case "${TERM}" in
+    xterm-color|*-256color) echo "$1";;
+    *) echo "$2";;esac
 }
 
-__ps1_remove_newline() {
+__ps1_remove_newline(){
   sed -z 's/\(.*\)\n/\1/'
 }
 
-__ps1_color_wrap_non_printing() {
+__ps1_color_wrap_non_printing(){
   local ESC; ESC=$(echo -e '\033')
   local SOH; SOH=$(echo -e '\001')
   local STX; STX=$(echo -e '\002')
@@ -28,12 +26,17 @@ __ps1_color_wrap_non_printing() {
   sed "s/${REGEX}/${REPLACE}/g"
 }
 
-__ps1_lolcat() {
-  if [[ "${color_prompt}" = yes ]]; then
+__ps1_lolcat(){
+  if [[ "${TERM}" = xterm-color ]] || [[ "${TERM}" = *-256color ]]; then
     lolcat-c -b -f | __ps1_remove_newline | __ps1_color_wrap_non_printing
-  else
-    __ps1_remove_newline
-  fi
+  elif [[ "${TERM}" = linux ]]; then
+    lolcat-c -x -f | __ps1_remove_newline | __ps1_color_wrap_non_printing; fi
+}
+
+# Get tty
+__ps1_tty(){
+  local PS1_tty; PS1_tty=$(tty)
+  echo "${PS1_tty}" | cut -c 6-
 }
 
 # Uptime
@@ -56,38 +59,51 @@ __ps1_spec(){ grep -c "^[bcps]" <<< "${PS1_dirList}"; }
 __ps1_pad(){
   local len pad
   if [[ "${1}" = L1 ]]; then len="$(wc -m <<< "${PS1_L1@P}")"
-    else len="$(wc -m <<< "${PS1_L2@P}")"
-  fi
-  if [[ "${color_prompt}" = yes ]]; then
+    else len="$(wc -m <<< "${PS1_L2@P}")"; fi
+  if [[ "${TERM}" = xterm-color ]] || [[ "${TERM}" = *-256color ]]; then
     if [[ "${1}" = L1 ]]; then pad=$((COLUMNS-len-3))
-      else pad=$((COLUMNS-len-6))
-    fi
-    else pad=$((COLUMNS-len))
-  fi
+      else pad=$((COLUMNS-len-6)); fi
+    else pad=$((COLUMNS-len)); fi
   printf %"${pad}"s | sed 's/ /═/g'
 }
 
-__prompt_command() {
+# Set the title of GUI terminal app to include the command being executed
+__ps1_preCommand(){
+  case "${TERM}" in
+    xterm*|rxvt*) echo -ne "\033]0;${debian_chroot:+(${debian_chroot})}${USER}@${HOSTNAME%%.*}($(__ps1_tty)):${PWD}: (${BASH_COMMAND})\007";;
+    *) ;;esac
+}
+trap "__ps1_preCommand" DEBUG
+
+__prompt_command(){
   # Save last exit code
   # shellcheck disable=SC2034
   local PS1_exit=$?
-  
   local PS1_Cl PS1_dirList PS1_L3 PS1_Op
-  
+
   # Get dir listing
   PS1_dirList=$(\ls -Al --si)
-  
+
   PS1_Op="$(__ps1_utf8 ⟪ '[')"
   PS1_Cl="$(__ps1_utf8 ⟫ ']')"
-  
-  PS1_L1="╚═${PS1_Op}Exit ${PS1_exit}${PS1_Cl}══${PS1_Op}${color_prompt:+🗓️ }\d ${color_prompt:+🕛}\D{}${PS1_Cl}══${PS1_Op}\u(${color_prompt:+💻}$(tty | cut -c 6-))@\h(${color_prompt:+⚡}$(__ps1_uptime))${PS1_Cl}══╡$(__ps1_utf8 🔥 ╳)╞"
+
+  PS1_L0="╾╥$(printf %$((COLUMNS-3))s | sed 's/ /─/g')╯\n"
+  PS1_L1=" ╚═${PS1_Op}Exit ${PS1_exit}${PS1_Cl}══${PS1_Op}$(__ps1_utf8 '🗓️ ')\d $(__ps1_utf8 🕛)\D{}${PS1_Cl}══${PS1_Op}\u($(__ps1_utf8 💻)$(__ps1_tty))@\h($(__ps1_utf8 ⚡)$(__ps1_uptime))${PS1_Cl}══╡$(__ps1_utf8 🔥 \*)╞"
   PS1_L1+="$(__ps1_pad L1)╗\n"
-  PS1_L2="╔══${PS1_Op}\!:\#${PS1_Cl}══${PS1_Op}$(jobs -r | wc -l)$(__ps1_utf8 🏃 R)/$(jobs -s | wc -l)$(__ps1_utf8 💤 S)${PS1_Cl}══${PS1_Op}${color_prompt:+📂}\W($(__ps1_dirSize)B $(__ps1_utf8 📄 -)$(__ps1_files).$(__ps1_hiddenFiles) $(__ps1_utf8 💾 x)$(__ps1_execs) $(__ps1_utf8 📁 d)$(__ps1_dirs).$(__ps1_hiddenDirs) $(__ps1_utf8 🔗 l)$(__ps1_links) $(__ps1_utf8 '🖨️ ' s)$(__ps1_spec))${PS1_Cl}"
+  PS1_L2="╔═${PS1_Op}\!:\#${PS1_Cl}══${PS1_Op}$(jobs -r | wc -l)$(__ps1_utf8 🏃 R)/$(jobs -s | wc -l)$(__ps1_utf8 💤 S)${PS1_Cl}══${PS1_Op}$(__ps1_utf8 📂)\W($(__ps1_dirSize)B $(__ps1_utf8 📄 -)$(__ps1_files).$(__ps1_hiddenFiles) $(__ps1_utf8 💾 x)$(__ps1_execs) $(__ps1_utf8 📁 d)$(__ps1_dirs).$(__ps1_hiddenDirs) $(__ps1_utf8 🔗 l)$(__ps1_links) $(__ps1_utf8 '🖨️ ' s)$(__ps1_spec))${PS1_Cl}"
   PS1_L2+="$(__ps1_pad L2)╝\n"
-  PS1_L3="╠═$(__ps1_utf8 ⮚ \>)$(__ps1_utf8 💲 \$) "
-  
-  PS1='$(__ps1_lolcat <<< "'${PS1_L1}${PS1_L2}${PS1_L3}'")'
-  
+  PS1_L3="╚╦═$(__ps1_utf8 ⮚ \>)$(__ps1_utf8 💲 \$) "
+
+  case "${color_prompt}" in
+    yes) if [[ "${TERM}" = xterm-color ]] || [[ "${TERM}" = *-256color ]]; then
+           PS0="$(lolcat-c -b -f <<< "╾╨$(printf %$((COLUMNS-3))s | sed 's/ /─/g')╮")"
+         elif [[ "${TERM}" = linux ]]; then
+           PS0="$(lolcat-c -x -f <<< "╾╨$(printf %$((COLUMNS-3))s | sed 's/ /─/g')╮")"; fi
+         PS1='$(__ps1_lolcat <<< "'${PS1_L0}${PS1_L1}${PS1_L2}${PS1_L3}'")'
+      ;;
+    *) PS0="╾╨$(printf %$((COLUMNS-3))s | sed 's/ /─/g')╮"
+       PS1="${PS1_L0}${PS1_L1}${PS1_L2}${PS1_L3}";;esac
+
   unset PS1_L1 PS1_L2
 }
 PROMPT_COMMAND="__prompt_command${PROMPT_COMMAND:+"; ${PROMPT_COMMAND}"}"
