@@ -1,20 +1,38 @@
 # shellcheck shell=bash
 # shellcheck disable=SC2312
 
-case "${TERM}" in
-    xterm-color|*-256color|linux) color_prompt=yes;;
-    *) ;;
-esac
-
 # Print UTF-8 char?
 __ps1_utf8(){
   case "${TERM}" in
-    xterm-color|*-256color) echo "$1";;
-    *) echo "$2";;esac
+    xterm-color|*-256color)
+      echo "${1}";;
+    *)
+      echo "${2}";;
+  esac
 }
 
-__ps1_remove_newline(){
-  sed -z 's/\(.*\)\n/\1/'
+# Print UTF-8 time char?
+__ps1_utf8time(){
+  case "${TERM}" in
+    xterm-color|*-256color)
+      case "${1}:${2}" in
+        01:[0-2][0-9]) echo "🕐";; 01:[3-5][0-9]) echo "🕜";;
+        02:[0-2][0-9]) echo "🕑";; 02:[3-5][0-9]) echo "🕝";;
+        03:[0-2][0-9]) echo "🕒";; 03:[3-5][0-9]) echo "🕞";;
+        04:[0-2][0-9]) echo "🕓";; 04:[3-5][0-9]) echo "🕟";;
+        05:[0-2][0-9]) echo "🕔";; 05:[3-5][0-9]) echo "🕠";;
+        06:[0-2][0-9]) echo "🕕";; 06:[3-5][0-9]) echo "🕡";;
+        07:[0-2][0-9]) echo "🕖";; 07:[3-5][0-9]) echo "🕢";;
+        08:[0-2][0-9]) echo "🕗";; 08:[3-5][0-9]) echo "🕣";;
+        09:[0-2][0-9]) echo "🕘";; 09:[3-5][0-9]) echo "🕤";;
+        10:[0-2][0-9]) echo "🕙";; 10:[3-5][0-9]) echo "🕥";;
+        11:[0-2][0-9]) echo "🕚";; 11:[3-5][0-9]) echo "🕦";;
+        12:[0-2][0-9]) echo "🕛";; 12:[3-5][0-9]) echo "🕧";;
+        *) ;;
+      esac
+    ;;
+    *) ;;
+  esac
 }
 
 __ps1_color_wrap_non_printing(){
@@ -26,42 +44,32 @@ __ps1_color_wrap_non_printing(){
   sed "s/${REGEX}/${REPLACE}/g"
 }
 
-__ps1_lolcat(){
-  if [[ "${TERM}" = xterm-color ]] || [[ "${TERM}" = *-256color ]]; then
-    lolcat-c -b -f | __ps1_remove_newline | __ps1_color_wrap_non_printing
-  elif [[ "${TERM}" = linux ]]; then
-    lolcat-c -x -f | __ps1_remove_newline | __ps1_color_wrap_non_printing; fi
-}
-
 # Get tty
-__ps1_tty(){
-  local PS1_tty; PS1_tty=$(tty)
-  echo "${PS1_tty}" | cut -c 6-
-}
+__ps1_tty(){ tty | cut -c 6-; }
 
 # Uptime
 __ps1_uptime(){
-  local PS1_upsecs; PS1_upsecs=$(awk '{print $1}' /proc/uptime | awk -F . '{print $1}')
+  PS1_upsecs=$(awk '{print $1}' /proc/uptime | awk -F . '{print $1}')
   date -ud @"${PS1_upsecs}" +$((PS1_upsecs/3600/24))d%H:%M
 }
 
 # Dir stats
 __ps1_dirSize(){ sed -n 1p <<< "${PS1_dirList}" | awk '{print $2}'; }
-__ps1_files(){ grep "^-" <<< "${PS1_dirList}" | awk '{print $9}' | grep -cv "^\."; }
-__ps1_hiddenFiles(){ grep "^-" <<< "${PS1_dirList}" | awk '{print $9}' | grep -c "^\."; }
-__ps1_execs(){ grep -c "^-..x" <<< "${PS1_dirList}"; }
-__ps1_dirs(){ grep "^d" <<< "${PS1_dirList}" | awk '{print $9}' | grep -cv "^\."; }
-__ps1_hiddenDirs(){ grep "^d" <<< "${PS1_dirList}" | awk '{print $9}' | grep -c "^\."; }
-__ps1_links(){ grep -c "^l" <<< "${PS1_dirList}"; }
-__ps1_spec(){ grep -c "^[bcps]" <<< "${PS1_dirList}"; }
+__ps1_files(){ \grep "^-" <<< "${PS1_dirList}" | awk '{print $9}' | \grep -cv "^\."; }
+__ps1_hiddenFiles(){ \grep "^-" <<< "${PS1_dirList}" | awk '{print $9}' | \grep -c "^\."; }
+__ps1_execs(){ \grep -c "^-..x" <<< "${PS1_dirList}"; }
+__ps1_dirs(){ \grep "^d" <<< "${PS1_dirList}" | awk '{print $9}' | \grep -cv "^\."; }
+__ps1_hiddenDirs(){ \grep "^d" <<< "${PS1_dirList}" | awk '{print $9}' | \grep -c "^\."; }
+__ps1_links(){ \grep -c "^l" <<< "${PS1_dirList}"; }
+__ps1_spec(){ \grep -c "^[bcps]" <<< "${PS1_dirList}"; }
 
 # Calculate padding
-__ps1_pad(){
+__pad(){
   local len pad
-  if [[ "${1}" = L1 ]]; then len="$(wc -m <<< "${PS1_L1@P}")"
+  if [[ "${1}" = 1_L1 ]]; then len="$(wc -m <<< "${PS1_L1@P}")"
     else len="$(wc -m <<< "${PS1_L2@P}")"; fi
   if [[ "${TERM}" = xterm-color ]] || [[ "${TERM}" = *-256color ]]; then
-    if [[ "${1}" = L1 ]]; then pad=$((COLUMNS-len-3))
+    if [[ "${1}" = 1_L1 ]]; then pad=$((COLUMNS-len-3))
       else pad=$((COLUMNS-len-6)); fi
     else pad=$((COLUMNS-len)); fi
   printf %"${pad}"s | sed 's/ /═/g'
@@ -70,40 +78,55 @@ __ps1_pad(){
 # Set the title of GUI terminal app to include the command being executed
 __ps1_preCommand(){
   case "${TERM}" in
-    xterm*|rxvt*) echo -ne "\033]0;${debian_chroot:+(${debian_chroot})}${USER}@${HOSTNAME%%.*}($(__ps1_tty)):${PWD}: (${BASH_COMMAND})\007";;
-    *) ;;esac
+    xterm*|rxvt*)
+      local pwd='~'
+      [[ "${PWD}" != "${HOME}" ]] && pwd=${PWD/#${HOME}\//\~\/}
+      pwd="${pwd//[[:cntrl:]]}"
+      echo -ne "\033]0;${debian_chroot:+(${debian_chroot})}${USER}@${HOSTNAME%%.*}($(__ps1_tty)):${pwd} (${BASH_COMMAND})\007"
+    ;;
+    *) ;;
+  esac
 }
 trap "__ps1_preCommand" DEBUG
 
+case "${TERM}" in
+  xterm-color|*-256color) PS1_color=yes; PS1_lc_opts=( -v 0.1 -h 0.1 -b -f );;
+                   linux) PS1_color=yes; PS1_lc_opts=( -x -f );;
+                       *) ;;
+esac
+
+PS1_Op="$(__ps1_utf8 ⟪ '[')"
+PS1_Cl="$(__ps1_utf8 ⟫ ']')"
+
 __prompt_command(){
+  local PS1_dirList PS1_exit PS1_L0 PS1_L1 PS1_L2 PS1_L3
+
   # Save last exit code
-  # shellcheck disable=SC2034
-  local PS1_exit=$?
-  local PS1_Cl PS1_dirList PS1_L3 PS1_Op
+  PS1_exit=$?
 
   # Get dir listing
   PS1_dirList=$(\ls -Al --si)
 
-  PS1_Op="$(__ps1_utf8 ⟪ '[')"
-  PS1_Cl="$(__ps1_utf8 ⟫ ']')"
-
   PS1_L0="╾╥$(printf %$((COLUMNS-3))s | sed 's/ /─/g')╯\n"
-  PS1_L1=" ╚═${PS1_Op}Exit ${PS1_exit}${PS1_Cl}══${PS1_Op}$(__ps1_utf8 '🗓️ ')\d $(__ps1_utf8 🕛)\D{}${PS1_Cl}══${PS1_Op}\u($(__ps1_utf8 💻)$(__ps1_tty))@\h($(__ps1_utf8 ⚡)$(__ps1_uptime))${PS1_Cl}══╡$(__ps1_utf8 🔥 \*)╞"
-  PS1_L1+="$(__ps1_pad L1)╗\n"
+  PS1_L1=" ╚═${PS1_Op}Exit ${PS1_exit}${PS1_Cl}══${PS1_Op}$(__ps1_utf8 '🗓️ ')\d $(__ps1_utf8time "$(date +"%I")" "$(date +"%M")")\D{}${PS1_Cl}══${PS1_Op}\u($(__ps1_utf8 💻)$(__ps1_tty))@\h($(__ps1_utf8 ⚡)$(__ps1_uptime))${PS1_Cl}══╡$(__ps1_utf8 🔥 \*)╞"
+  PS1_L1+="$(__pad 1_L1)╗\n"
   PS1_L2="╔═${PS1_Op}\!:\#${PS1_Cl}══${PS1_Op}$(jobs -r | wc -l)$(__ps1_utf8 🏃 R)/$(jobs -s | wc -l)$(__ps1_utf8 💤 S)${PS1_Cl}══${PS1_Op}$(__ps1_utf8 📂)\W($(__ps1_dirSize)B $(__ps1_utf8 📄 -)$(__ps1_files).$(__ps1_hiddenFiles) $(__ps1_utf8 💾 x)$(__ps1_execs) $(__ps1_utf8 📁 d)$(__ps1_dirs).$(__ps1_hiddenDirs) $(__ps1_utf8 🔗 l)$(__ps1_links) $(__ps1_utf8 '🖨️ ' s)$(__ps1_spec))${PS1_Cl}"
-  PS1_L2+="$(__ps1_pad L2)╝\n"
+  PS1_L2+="$(__pad 1_L2)╝\n"
   PS1_L3="╚╦═$(__ps1_utf8 ⮚ \>)$(__ps1_utf8 💲 \$) "
 
-  case "${color_prompt}" in
+  case "${PS1_color}" in
     yes) if [[ "${TERM}" = xterm-color ]] || [[ "${TERM}" = *-256color ]]; then
-           PS0="$(lolcat-c -b -f <<< "╾╨$(printf %$((COLUMNS-3))s | sed 's/ /─/g')╮")"
-         elif [[ "${TERM}" = linux ]]; then
-           PS0="$(lolcat-c -x -f <<< "╾╨$(printf %$((COLUMNS-3))s | sed 's/ /─/g')╮")"; fi
-         PS1='$(__ps1_lolcat <<< "'${PS1_L0}${PS1_L1}${PS1_L2}${PS1_L3}'")'
-      ;;
-    *) PS0="╾╨$(printf %$((COLUMNS-3))s | sed 's/ /─/g')╮"
-       PS1="${PS1_L0}${PS1_L1}${PS1_L2}${PS1_L3}";;esac
-
-  unset PS1_L1 PS1_L2
+           PS0='$(lolcat-c '${PS1_lc_opts[*]}' <<< "╾╨────┤Program running $(__ps1_utf8 "🗓️ ")\d $(__ps1_utf8time "$(date +"%I")" "$(date +"%M")")\D{}├$(printf %$((COLUMNS-51))s | sed "s/ /─/g")╮")'
+         else
+           PS0='$(lolcat-c '${PS1_lc_opts[*]}' <<< "╾╨────┤Program running \d \D{}├$(printf %$((COLUMNS-47))s | sed "s/ /─/g")╮")'; fi
+         PS1='$(lolcat-c '${PS1_lc_opts[*]}' <<< "'${PS1_L0}${PS1_L1}${PS1_L2}${PS1_L3}'" | sed -z "s/\(.*\)\\n/\1/" | __ps1_color_wrap_non_printing)'
+         PS2="$(lolcat-c "${PS1_lc_opts[@]}" <<< " ╠═══$(__ps1_utf8 ⮚ \>) " | sed -z "s/\(.*\)\\n/\1/" | __ps1_color_wrap_non_printing)";;
+      *) if [[ "${TERM}" = xterm-color ]] || [[ "${TERM}" = *-256color ]]; then
+           PS0="╾╨────┤Program running $(__ps1_utf8 "🗓️ ")\d $(__ps1_utf8time "$(date +"%I")" "$(date +"%M")")\D{}├$(printf %$((COLUMNS-51))s | sed "s/ /─/g")╮"
+         else
+           PS0="╾╨────┤Program running \d \D{}├$(printf %$((COLUMNS-47))s | sed "s/ /─/g")╮"; fi
+         PS1="${PS1_L0}${PS1_L1}${PS1_L2}${PS1_L3}"
+         PS2=" ╠═══$(__ps1_utf8 ⮚ \>) ";;
+  esac
 }
 PROMPT_COMMAND="__prompt_command${PROMPT_COMMAND:+"; ${PROMPT_COMMAND}"}"
